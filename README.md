@@ -59,7 +59,8 @@ Xem [quyết định thiết kế](docs/QUYET_DINH_THIET_KE.md). Giai đoạn hi
 ## Công cụ vận hành và benchmark
 
 - Sao chép `.env.example` thành `.env` để cấu hình `PORT`, `DATA_DIR` và cookie. Tệp `.env` bị Git ignore. Tài khoản khởi tạo đọc `ADMIN_USERNAME`/`ADMIN_PASSWORD`; tạo tài khoản một lần bằng `npm run create-admin`. Không đưa `.env` vào gói chia sẻ.
-- Sao lưu SQLite nhất quán cùng thư mục tài liệu: `node scripts/backup.js`; đặt `DATA_DIR` và `BACKUP_DIR` để chọn vị trí.
+- Sao lưu SQLite nhất quán cùng thư mục tài liệu: `node scripts/backup.js`; đặt `DATA_DIR` và `BACKUP_DIR` để chọn vị trí. Để sao lưu tự động, đặt `BACKUP_INTERVAL_HOURS` (ví dụ `24`) và `BACKUP_KEEP` (số bản giữ lại, mặc định 14).
+- HTTPS nội bộ: chạy `node scripts/create-cert.js --hosts <IP máy chủ>[,tên máy]` (cần openssl, có sẵn trong Git Bash), rồi đặt `TLS_CERT` và `TLS_KEY` trong `.env`. Cài `certs/ca.crt` vào kho chứng thư tin cậy của các máy người dùng, và cất `certs/ca.key` ở nơi an toàn, ngoài máy chủ.
 - Tạo cuộc họp demo với 50 đại biểu và 3 PDF giả lập: `npm run seed-demo`. Mật khẩu được sinh riêng và ghi vào `DATA_DIR/demo-credentials.csv`; giữ tệp này an toàn. Chạy trong `DATA_DIR` riêng để không trộn dữ liệu demo với dữ liệu thật.
 - Đóng gói dùng trong môi trường offline trên **cùng hệ điều hành và kiến trúc**: PowerShell `./scripts/package-offline.ps1 -OutputDirectory <thư_mục_nhận>`. Gói mang theo `node_modules` của máy đóng gói; không phải gói đa nền tảng.
 - Cấu hình `SOCKET_CONNECTIONS_PER_MINUTE` trong `.env` giới hạn số lần bắt tay Socket.IO từ một địa chỉ IP; mặc định 200 để đủ chạy kiểm thử 100 client cùng máy.

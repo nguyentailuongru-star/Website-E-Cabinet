@@ -8,7 +8,7 @@ function compose(meetingId){
  const speakers=db.prepare(`SELECT u.full_name AS fullName,u.unit,h.started_at AS startedAt,h.ended_at AS endedAt,h.duration_seconds AS durationSeconds FROM speech_history h JOIN users u ON u.id=h.user_id WHERE h.meeting_id=? ORDER BY h.started_at,h.id`).all(meetingId);
  const present=participants.filter(p=>p.status==='present').length;
  const lines=[`# ${meeting.title}`,`## Thời gian: ${new Date(meeting.starts_at).toLocaleString('vi-VN')}`,`## Địa điểm: ${meeting.location||'Chưa ghi'}`,'','## Thành phần'];
- for(const p of participants)lines.push(`- ${p.fullName} (${p.role})${p.unit?` · ${p.unit}`:''}`);
+ const roleLabel={chair:'Chủ trì',secretary:'Thư ký',delegate:'Đại biểu',screen:'Màn chiếu'};for(const p of participants)lines.push(`- ${p.fullName} (${roleLabel[p.role]||p.role})${p.unit?` · ${p.unit}`:''}`);
  lines.push('','## Điểm danh',`- Có mặt: ${present}/${participants.length}`,`- Vắng có lý do: ${participants.filter(p=>p.status==='absent_excused').length}`,`- Vắng: ${participants.filter(p=>p.status==='absent').length}`,'','## Kết quả biểu quyết');
  if(!polls.length)lines.push('- Chưa có kết quả được công bố.');for(const poll of polls){lines.push(`### ${poll.question} (${poll.ballotType==='secret'?'kín':'công khai'})`);const total=poll.options.reduce((n,o)=>n+o.count,0);for(const option of poll.options)lines.push(`- ${option.label}: ${option.count}${total?` (${(option.count*100/total).toFixed(1)}%)`:''}`);}
  lines.push('','## Đại biểu phát biểu');if(!speakers.length)lines.push('- Chưa có lượt phát biểu.');for(const s of speakers)lines.push(`- ${s.fullName}${s.unit?` · ${s.unit}`:''}: ${s.startedAt}${s.endedAt?` – kết thúc ${s.endedAt}`:''}${s.durationSeconds?` · giới hạn ${s.durationSeconds} giây`:''}`);

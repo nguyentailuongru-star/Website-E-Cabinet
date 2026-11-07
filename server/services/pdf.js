@@ -3,6 +3,8 @@ const path = require('node:path');
 const os = require('node:os');
 const { spawnSync } = require('node:child_process');
 const sharp = require('sharp');
+// Mỗi ảnh xử lý trên một luồng; song song hóa giữa các yêu cầu qua threadpool của libuv (xem server/index.js).
+sharp.concurrency(Math.max(1, Number(process.env.SHARP_CONCURRENCY) || 1));
 
 async function toPdf(buffer, extension) {
   if (extension === '.pdf') return { buffer, tempDir: null };
@@ -44,13 +46,35 @@ async function renderPdf(buffer, outputDir) {
 }
 
 function escapeXml(text) { return String(text).replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c])); }
-async function addWatermark(pagePath, outputPath, viewer, viewedAt) {
-  const meta = await sharp(pagePath).metadata();
+/*
+ * Watermark theo người xem. Lớp chữ (SVG → PNG) chỉ phụ thuộc nội dung nhãn và kích thước trang,
+ * nên được dựng một lần rồi dùng lại (LRU); thời điểm trên nhãn làm tròn theo phút, còn nhật ký
+ * audit vẫn ghi từng lượt xem chính xác. Nén WebP mức effort 1 nhanh hơn ~3 lần so với mặc định.
+ */
+const OVERLAY_MAX = Math.max(16, Number(process.env.WATERMARK_CACHE_SIZE) || 256);
+const overlays = new Map();
+function watermarkOverlay(label, width, height) {
+  const key = `${width}x${height}|${label}`;
+  let p = overlays.get(key);
+  if (p) { overlays.delete(key); overlays.set(key, p); return p; }
+  const safe = escapeXml(label), rows = [];
+  // Mỗi hàng lặp lại nhãn đủ để phủ kín vùng xoay (≈3 lần chiều rộng trang). Trước đây mỗi hàng chỉ có
+  // một nhãn bắt đầu ở x = −width nên với trang lớn, toàn bộ chữ nằm ngoài khung và watermark không hiện.
+  const repeat = Math.ceil((width * 3) / Math.max(1, label.length * 11)) + 2;
+  const line = Array(repeat).fill(safe).join('  ');
+  for (let y = -height, i = 0; y < height * 2; y += 150, i++) rows.push(`<text x="${-width - (i % 2) * 180}" y="${y}">${line}</text>`);
+  const svg = Buffer.from(`<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg"><g transform="rotate(-28 ${width/2} ${height/2})" fill="#b52222" fill-opacity="0.25" font-family="Arial,sans-serif" font-size="22" font-weight="600">${rows.join('')}</g></svg>`);
+  p = sharp(svg).png({ compressionLevel: 1 }).toBuffer();
+  overlays.set(key, p);
+  p.catch(() => overlays.delete(key));
+  if (overlays.size > OVERLAY_MAX) overlays.delete(overlays.keys().next().value);
+  return p;
+}
+async function addWatermark(pagePath, outputPath, viewer, viewedAt, size) {
+  let { width, height } = size || {};
+  if (!width || !height) ({ width, height } = await sharp(pagePath).metadata());
   const label = `${viewer.full_name} · ${viewer.unit || 'Đơn vị chưa cập nhật'} · ${viewedAt}`;
-  const safe = escapeXml(label);
-  const rows = [];
-  for (let y = -meta.height; y < meta.height * 2; y += 150) rows.push(`<text x="-${meta.width}" y="${y}">${safe}</text>`);
-  const svg = Buffer.from(`<svg width="${meta.width}" height="${meta.height}" xmlns="http://www.w3.org/2000/svg"><g transform="rotate(-28 ${meta.width/2} ${meta.height/2})" fill="#b52222" fill-opacity="0.25" font-family="Arial,sans-serif" font-size="22" font-weight="600">${rows.join('')}</g></svg>`);
-  await sharp(pagePath).composite([{ input: svg }]).webp({ quality: 84 }).toFile(outputPath);
+  const overlay = await watermarkOverlay(label, width, height);
+  await sharp(pagePath).composite([{ input: overlay }]).webp({ quality: 80, effort: 1 }).toFile(outputPath);
 }
 module.exports = { toPdf, renderPdf, addWatermark };

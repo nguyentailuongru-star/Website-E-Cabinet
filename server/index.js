@@ -1,3 +1,5 @@
+// Threadpool của libuv (mặc định 4 luồng) là nơi sharp/bcrypt chạy; đặt theo số nhân vật lý ước lượng.
+process.env.UV_THREADPOOL_SIZE ||= String(Math.min(32, Math.max(4, Math.ceil(require('node:os').cpus().length / 2))));
 const express = require('express');
 const http = require('node:http');
 const helmet = require('helmet');
@@ -47,5 +49,13 @@ app.use('/api',meetingRoutes);
 app.get('/',(req,res)=>res.sendFile(path.resolve('public/index.html'))); app.use('/assets',express.static(path.resolve('public'),{index:false}));
 app.use((err,req,res,next)=>{console.error(err);const status=err.name==='MulterError'?413:(err.status||500);const message=status===413?'T\u1ec7p v\u01b0\u1ee3t qu\u00e1 gi\u1edbi h\u1ea1n 50 MB.':(status<500?err.message:'\u0110\u00e3 x\u1ea3y ra l\u1ed7i h\u1ec7 th\u1ed1ng.');res.status(status).json({error:message});});
 function parseCsv(input){const out=[];let row=[],cell='',quoted=false;for(let i=0;i<input.length;i++){const c=input[i];if(quoted){if(c==='"'&&input[i+1]==='"'){cell+='"';i++;}else if(c==='"')quoted=false;else cell+=c;}else if(c==='"')quoted=true;else if(c===','){row.push(cell);cell='';}else if(c==='\n'){row.push(cell.replace(/\r$/,''));out.push(row);row=[];cell='';}else cell+=c;}if(cell||row.length){row.push(cell.replace(/\r$/,''));out.push(row);}return out;}
-const port=Number(process.env.PORT)||3000;const server=http.createServer(app);const io=attachRealtime(server,app);if(require.main===module)server.listen(port,'0.0.0.0',()=>console.log(`Phòng họp đang chạy tại cổng ${port}`));
+const port=Number(process.env.PORT)||3000;
+// HTTPS nội bộ: đặt TLS_CERT và TLS_KEY (tạo bằng scripts/create-cert.js). Khi bật TLS, cookie phiên luôn có cờ Secure.
+const tls=process.env.TLS_CERT&&process.env.TLS_KEY?{cert:fs.readFileSync(path.resolve(process.env.TLS_CERT)),key:fs.readFileSync(path.resolve(process.env.TLS_KEY))}:null;
+if(tls)process.env.COOKIE_SECURE='true';
+const server=tls?require('node:https').createServer(tls,app):http.createServer(app);const io=attachRealtime(server,app);
+if(require.main===module){
+ server.listen(port,'0.0.0.0',()=>console.log(`Phòng họp đang chạy tại ${tls?'https':'http'}://0.0.0.0:${port}`));
+ require('./services/backup').scheduleBackups(db,{dataDir:process.env.DATA_DIR||'data',outDir:process.env.BACKUP_DIR||'backups',intervalHours:Number(process.env.BACKUP_INTERVAL_HOURS)||0,keep:Number(process.env.BACKUP_KEEP)||14});
+}
 module.exports=app; module.exports.attachSockets=(target)=>attachRealtime(target,app);module.exports.io=io;

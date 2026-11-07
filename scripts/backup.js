@@ -1,13 +1,10 @@
-const fs=require('node:fs');
 const path=require('node:path');
-const {execFileSync}=require('node:child_process');
 const db=require('../server/db');
+const {runBackup,pruneBackups}=require('../server/services/backup');
 const data=path.resolve(process.env.DATA_DIR||'data');
 const out=path.resolve(process.env.BACKUP_DIR||'backups');
-fs.mkdirSync(out,{recursive:true});
-const stamp=new Date().toISOString().replaceAll(':','-').replaceAll('.','-');
-const stage=path.join(out,`.phonghop-stage-${process.pid}-${Date.now()}`);
-const resolvedStage=path.resolve(stage),resolvedOut=path.resolve(out);
-if(!resolvedStage.startsWith(resolvedOut+path.sep))throw new Error('Thư mục staging nằm ngoài thư mục sao lưu.');
-fs.mkdirSync(stage);
-(async()=>{try{await db.backup(path.join(stage,'phong-hop.sqlite'));const docs=path.join(data,'meetings');if(fs.existsSync(docs))fs.cpSync(docs,path.join(stage,'meetings'),{recursive:true});const archive=path.join(out,`phong-hop-${stamp}.tar.gz`);execFileSync('tar',['-czf',archive,'-C',stage,'.']);console.log(`Đã tạo bản sao lưu: ${archive}`);}finally{if(path.resolve(stage).startsWith(path.resolve(out)+path.sep))fs.rmSync(stage,{recursive:true,force:true});db.close();}})().catch(e=>{console.error(e.message);process.exitCode=1;});
+const keep=Number(process.env.BACKUP_KEEP)||0;
+runBackup(db,{dataDir:data,outDir:out})
+ .then(archive=>{console.log(`Đã tạo bản sao lưu: ${archive}`);const removed=pruneBackups(out,keep);if(removed.length)console.log(`Đã xóa ${removed.length} bản cũ (giữ ${keep}).`);})
+ .catch(e=>{console.error(e.message);process.exitCode=1;})
+ .finally(()=>db.close());

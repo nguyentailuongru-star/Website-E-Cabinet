@@ -25,3 +25,5 @@ data/*.sqlite
 data/meetings/
 data/backups/
 bench/fixture.json
+backups/
+certs/
