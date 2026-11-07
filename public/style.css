@@ -3,3 +3,5 @@
 @media print{body>*{display:none!important}body::after{content:"Nội dung bản in đã ẩn.";display:block}}
 
 .subcard{border:1px solid #dbe4e8;border-radius:10px;padding:18px;margin-top:18px}.warning{border-left:4px solid #b12a2a;padding:10px;background:#fff4f1;color:#822}.subcard article{padding:12px 0;border-bottom:1px solid #e5ecef}#minutes-preview{white-space:pre-wrap;max-height:360px;overflow:auto;background:#f6f8f9;padding:12px}
+
+#admin-user-credentials{white-space:pre-wrap;background:#eef6f7;padding:12px;border-radius:8px;overflow-wrap:anywhere}#meeting-create-hint{color:#8c3026;min-height:1.4em}#create-meeting-submit:disabled{opacity:.55;cursor:not-allowed}
