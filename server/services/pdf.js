@@ -2,7 +2,6 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const os = require('node:os');
 const { spawnSync } = require('node:child_process');
-const { createCanvas, DOMMatrix, ImageData, Path2D } = require('@napi-rs/canvas');
 const sharp = require('sharp');
 
 async function toPdf(buffer, extension) {
@@ -21,9 +20,6 @@ async function toPdf(buffer, extension) {
 }
 
 async function renderPdf(buffer, outputDir) {
-  globalThis.DOMMatrix ||= DOMMatrix;
-  globalThis.ImageData ||= ImageData;
-  globalThis.Path2D ||= Path2D;
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
   const task = pdfjs.getDocument({ data: new Uint8Array(buffer), useSystemFonts: true, isEvalSupported: false, verbosity: 0 });
   let pdf;try{pdf=await task.promise;}catch{await task.destroy().catch(()=>{});const error=new Error('Tệp PDF không hợp lệ hoặc không đọc được.');error.status=422;throw error;}
@@ -34,8 +30,10 @@ async function renderPdf(buffer, outputDir) {
       const page = await pdf.getPage(pageNo), base = page.getViewport({ scale: 1 });if(!Number.isFinite(base.width)||!Number.isFinite(base.height)||base.width<=0||base.height<=0){const error=new Error('PDF có kích thước trang không hợp lệ.');error.status=422;throw error;}
       const scale = Math.min(1.6, 2000 / base.width, 2500 / base.height);
       const viewport = page.getViewport({ scale });
-      const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
-      await page.render({ canvasContext: canvas.getContext('2d'), canvas, viewport }).promise;
+      // Dùng canvas factory của chính pdfjs: pdfjs-dist mang bản @napi-rs/canvas riêng; trộn canvas/DOMMatrix/Path2D
+      // của hai bản native khác nhau trong một lần render gây Segmentation fault với PDF có ảnh (ví dụ bản scan).
+      const { canvas, context } = pdf.canvasFactory.create(Math.ceil(viewport.width), Math.ceil(viewport.height));
+      await page.render({ canvasContext: context, canvas, viewport }).promise;
       const target = path.join(outputDir, `${pageNo}.webp`);
       await sharp(canvas.toBuffer('image/png')).webp({ quality: 82 }).toFile(target);
       pages.push({ pageNumber: pageNo, imagePath: target, width: canvas.width, height: canvas.height });

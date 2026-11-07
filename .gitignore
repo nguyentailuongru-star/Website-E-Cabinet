@@ -20,3 +20,8 @@ Thumbs.db
 # SQLite temporary files
 *.sqlite-shm
 *.sqlite-wal
+# Dữ liệu vận hành: cơ sở dữ liệu, tài liệu họp, kết quả và fixture đo (chứa cookie phiên)
+data/*.sqlite
+data/meetings/
+data/backups/
+bench/fixture.json

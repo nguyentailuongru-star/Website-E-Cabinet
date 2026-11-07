@@ -26,8 +26,9 @@ test('GĐ4: phiếu kín, công bố kết quả, biên bản PDF/DOCX', {timeou
  assert.deepEqual(concurrent.map(x=>x.status).sort(),[201,409]);
  assert.deepEqual(db.prepare('PRAGMA table_info(secret_ballots)').all().map(x=>x.name).sort(),['id','option_id','poll_id']);
  const audit=db.prepare("SELECT details FROM audit_logs WHERE action='secret_vote_cast' ORDER BY rowid DESC LIMIT 1").get();assert.equal(JSON.parse(audit.details).optionId,undefined);
+ assert.equal(db.prepare('SELECT COUNT(*) AS n FROM secret_ballots WHERE poll_id=?').get(pollId).n,0,'phiếu kín không được ghi xuống đĩa khi biểu quyết còn mở');
  assert.equal((await call(`/polls/${pollId}/results`,delegate)).status,409);
- assert.equal((await call(`/polls/${pollId}/close`,chair,'POST',{})).status,200);assert.equal((await call(`/polls/${pollId}/publish`,chair,'POST',{})).status,200);
+ assert.equal((await call(`/polls/${pollId}/close`,chair,'POST',{})).status,200);assert.equal(db.prepare('SELECT COUNT(*) AS n FROM secret_ballots WHERE poll_id=?').get(pollId).n,1);assert.equal((await call(`/polls/${pollId}/publish`,chair,'POST',{})).status,200);
  assert.equal((await call(`/meetings/${meetingId}/minutes`,secretary,'PUT',{body:'Kết luận cuộc họp.'})).status,200);
  const pdf=await call(`/meetings/${meetingId}/minutes/export.pdf`,delegate);assert.equal(pdf.status,200);assert.equal(pdf.headers.get('content-type'),'application/pdf');assert.ok((await pdf.arrayBuffer()).byteLength>500);
  const docx=await call(`/meetings/${meetingId}/minutes/export.docx`,delegate);assert.equal(docx.status,200);const bytes=Buffer.from(await docx.arrayBuffer());assert.equal(bytes.readUInt32LE(0),0x04034b50);assert.ok(bytes.includes(Buffer.from('word/document.xml')));
