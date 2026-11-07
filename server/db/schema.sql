@@ -1,0 +1,23 @@
+PRAGMA foreign_keys = ON;
+CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  full_name TEXT NOT NULL, unit TEXT NOT NULL DEFAULT '', title TEXT NOT NULL DEFAULT '',
+  password_hash TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('admin','chair','secretary','delegate','screen')),
+  active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)), must_change_password INTEGER NOT NULL DEFAULT 1,
+  failed_attempts INTEGER NOT NULL DEFAULT 0, locked_until TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS sessions (
+  id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  csrf_token TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, expires_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  username TEXT NOT NULL DEFAULT '', action TEXT NOT NULL, details TEXT NOT NULL DEFAULT '{}',
+  ip_address TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_logs(user_id);
+INSERT OR IGNORE INTO schema_migrations(version) VALUES (1);
