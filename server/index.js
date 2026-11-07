@@ -13,7 +13,7 @@ const { attachRealtime } = require('./realtime');
 
 const cspDirectives=helmet.contentSecurityPolicy.getDefaultDirectives();cspDirectives['connect-src']=["'self'",'ws:','wss:'];
 const app=express(); app.disable('x-powered-by'); app.use(helmet({contentSecurityPolicy:{directives:cspDirectives}})); app.use(express.json({limit:'1mb'})); app.use(auth.session);
-app.use('/api',rateLimit({windowMs:60*1000,limit:600,standardHeaders:true,legacyHeaders:false,message:{error:'Bạn thao tác quá nhanh. Vui lòng thử lại sau.'}}));
+const apiLimit=Math.max(60,Math.min(100000,Number(process.env.API_REQUESTS_PER_MINUTE)||600));app.use('/api',rateLimit({windowMs:60*1000,limit:apiLimit,standardHeaders:true,legacyHeaders:false,message:{error:'Bạn thao tác quá nhanh. Vui lòng thử lại sau.'}}));
 const loginLimit=rateLimit({windowMs:15*60*1000,limit:30,standardHeaders:true,legacyHeaders:false,message:{error:'Bạn thao tác quá nhanh. Vui lòng thử lại sau.'}});
 function audit(req,action,details={}){db.prepare('INSERT INTO audit_logs(user_id,username,action,details,ip_address) VALUES(?,?,?,?,?)').run(req.user?.id||null,req.user?.username||'',action,JSON.stringify(details),req.ip||'');}
 app.get('/api/health',(req,res)=>res.json({status:'ok'}));

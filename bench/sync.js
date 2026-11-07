@@ -163,6 +163,7 @@ async function main() {
     }));
     const clients = pool.slice(0, n);
     const lag = monitorEventLoopDelay({ resolution: 10 }); lag.enable();
+    const startedAt = new Date().toISOString();
     const cpu0 = process.cpuUsage(), wall0 = performance.now();
     const roomMs = [], stateAll = [], imageAll = [], ackAll = []; let expected = 0, okCount = 0;
 
@@ -186,7 +187,7 @@ async function main() {
     const cpu = process.cpuUsage(cpu0), wall = performance.now() - wall0;
     const ci = bootstrapCI(roomMs, a => pct(a, .5));
     const row = {
-      clients: n, rounds, samples: expected, success_rate: (100 * okCount / expected).toFixed(2),
+      clients: n, started_at: startedAt, ended_at: new Date().toISOString(), rounds, samples: expected, success_rate: (100 * okCount / expected).toFixed(2),
       chair_ack_p50: f1(pct(ackAll, .5)),
       state_p50: f1(pct(stateAll, .5)), state_p95: f1(pct(stateAll, .95)), state_p99: f1(pct(stateAll, .99)), state_mean: f1(mean(stateAll)), state_sd: f1(sd(stateAll)),
       image_p50: f1(pct(imageAll, .5)), image_p95: f1(pct(imageAll, .95)), image_p99: f1(pct(imageAll, .99)), image_mean: f1(mean(imageAll)), image_sd: f1(sd(imageAll)),
